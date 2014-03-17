@@ -30,6 +30,8 @@
          log_summary/1, log_detail/1, log_full/1
         ]).
 
+-export([speed_test_/0, time_reads/3]).
+
 -compile({inline, [skip_to_smaller_node/1, skip_to_bigger_node/3]}).
 
 %% Uncomment these compile optimizations if you don't need to trace these functions.
@@ -210,9 +212,12 @@ log_full(Bin_Dict) ->
 skip_to_smaller_node(KeySize) ->
     ?KEY_SIZE_IN_BYTES + KeySize.
 
+skip_to_value(KeySize, SmallerSize) ->
+    ?KEY_SIZE_IN_BYTES + KeySize + ?DICT_PTR_SIZE_IN_BYTES + SmallerSize.
+
 skip_to_bigger_node(KeySize, ValueSize, SmallerSize) ->
-    ?KEY_SIZE_IN_BYTES + KeySize + ?VALUE_SIZE_IN_BYTES + ValueSize
-        + ?DICT_PTR_SIZE_IN_BYTES + SmallerSize.
+    ?KEY_SIZE_IN_BYTES + KeySize + ?DICT_PTR_SIZE_IN_BYTES + SmallerSize
+        + ?VALUE_SIZE_IN_BYTES + ValueSize.
 
 %% Recursively encode gb_trees format as a binary tree.
 encode_gb_node({Key, Value, Smaller, Bigger}) when is_binary(Key), is_binary(Value) ->
@@ -245,14 +250,19 @@ to_gb_node(<<>>) -> nil.
 
 %% Recursively search nodes for a key, loading as little data to CPU cache as possible.
 %% Avoid creating a sub-binary for Smaller and Bigger until we need them to proceed.
-find_node(Key, << ?MATCH_VBISECT_NODE(HereKey, Value, _, _) >> = Node) ->
+find_node(Key, << ?MATCH_VBISECT_NODE(HereKey, _, _, _) >> = Node) ->
     case HereKey of
         Candidate when Key  <  Candidate -> find_node_smaller (Key, Node, __KeySize);
         Candidate when Key  >  Candidate -> find_node_bigger  (Key, Node, __KeySize,
                                                                __ValueSize, __SmallerSize);
-        Candidate when Key =:= Candidate -> Value
+        Candidate when Key =:= Candidate -> find_value(Node, __KeySize, __SmallerSize)
     end;
 find_node(_, <<>>) -> error.
+
+find_value(Node, KeySize, SmallerSize) ->
+    Skip_Size = skip_to_value(KeySize, SmallerSize),
+    << _:Skip_Size/binary, ?VALUE_ENTRY(Value), _/binary >> = Node,
+    Value.
 
 %% Keep the same arg order as find_node to avoid overhead.
 find_node_smaller(Key, Node, KeySize) ->
@@ -268,13 +278,17 @@ find_node_bigger(Key, Node, KeySize, ValueSize, SmallerSize) ->
 
 %% Recursively search nodes for greatest lesser key, loading as little data to CPU cache as possible.
 %% Avoid creating a sub-binary for Bigger unless we must search the right subtree.
-find_geq_node(Key, Else, << ?MATCH_VBISECT_NODE(HereKey, Value, _, _) >> = Node) ->
+find_geq_node(Key, Else, << ?MATCH_VBISECT_NODE(HereKey, _, _, _) >> = Node) ->
     case HereKey of
-        Candidate when Key  <  Candidate, Else =/= none -> Else;
-        Candidate when Key  <  Candidate -> find_geq_node_smaller (Key, Else, Node, __KeySize); 
-        Candidate when Key  >  Candidate -> find_geq_node_bigger  (Key, {ok, HereKey, Value}, Node,
-                                                                   __KeySize, __ValueSize, __SmallerSize);
-        Candidate when Key =:= Candidate -> {HereKey, Value}
+        Candidate when Key  <  Candidate, Else =/= none ->
+            Else;
+        Candidate when Key  <  Candidate ->
+            find_geq_node_smaller(Key, Else, Node, __KeySize); 
+        Candidate when Key  >  Candidate ->
+            Reply = {ok, HereKey, find_value(Node, __KeySize, __SmallerSize)},
+            find_geq_node_bigger(Key, Reply, Node, __KeySize, __ValueSize, __SmallerSize);
+        Candidate when Key =:= Candidate ->
+            {HereKey, find_value(Node, __KeySize, __SmallerSize)}
     end;
 find_geq_node(_, Else, <<>>) -> Else.
 
@@ -309,7 +323,7 @@ foldr_node(_Fun, Acc, <<>>) -> Acc.
 %% Test functions
 %% ===================================================================
 
--ifdef(TEST).
+%% -ifdef(TEST).
 
 speed_test_() ->
     {timeout, 600,
@@ -360,4 +374,4 @@ time_reads(B, Size, ReadKeys) ->
 find_many(B, Keys) ->
     lists:map(fun (K) -> find(K, B) end, Keys).
 
--endif.
+%% -endif.
