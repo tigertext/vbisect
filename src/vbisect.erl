@@ -30,8 +30,6 @@
          log_summary/1, log_detail/1, log_full/1
         ]).
 
--export([speed_test_/0, time_reads/3]).
-
 -compile({inline, [skip_to_smaller_node/1, skip_to_bigger_node/3]}).
 
 %% Uncomment these compile optimizations if you don't need to trace these functions.
@@ -323,7 +321,7 @@ foldr_node(_Fun, Acc, <<>>) -> Acc.
 %% Test functions
 %% ===================================================================
 
-%% -ifdef(TEST).
+-ifdef(TEST).
 
 speed_test_() ->
     {timeout, 600,
@@ -374,4 +372,4 @@ time_reads(B, Size, ReadKeys) ->
 find_many(B, Keys) ->
     lists:map(fun (K) -> find(K, B) end, Keys).
 
-%% -endif.
+-endif.
