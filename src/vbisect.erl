@@ -286,7 +286,7 @@ find_geq_node(Key, Else, << ?MATCH_VBISECT_NODE(HereKey, _, _, _) >> = Node) ->
             Reply = {ok, HereKey, find_value(Node, __KeySize, __SmallerSize)},
             find_geq_node_bigger(Key, Reply, Node, __KeySize, __ValueSize, __SmallerSize);
         Candidate when Key =:= Candidate ->
-            {HereKey, find_value(Node, __KeySize, __SmallerSize)}
+            {ok, HereKey, find_value(Node, __KeySize, __SmallerSize)}
     end;
 find_geq_node(_, Else, <<>>) -> Else.
 
