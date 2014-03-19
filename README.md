@@ -21,7 +21,8 @@ order (the key and value pairs are repeated as many times
 as are defined by the number of entries):
 
 ```
-Id:                 <<"vbis">>
+Id:                 <<"vbs">>
+Version:            <<1:8/unsigned>>
 Number of entries:  <<Count:32/unsigned>>
 
 Key Size:           <<Key_Size:16>>
@@ -31,6 +32,13 @@ Value Size:         <<Value_Size:32>>
 Value:              <<Value/binary>>
 
 ```
+
+There is currently only 1 internal format definition, but the
+internal implementation allows 254 new versions so that it is
+possible for the library to be upgraded and your application
+to run with more than one internal implementation version at
+the same time. This allows you to run with old code, or to use
+live update to migrate your data to a new library implementation.
 
 ### Interface
 
@@ -82,6 +90,9 @@ $ erl
 5> vbisect:from_orddict(v(4)).
 <<118,98,105,115,0,0,0,3,0,4,110,97,109,101,0,0,0,15,0,3,
   97,103,101,0,0,0,0,0,0,...>>
+
+6> iolist_to_binary(vbisect:log_summary(v(5), [<<"name">>])).
+<<"VBS1: 3 entries (54 bytes) [ name: joe ]">>
 
 ```
 
