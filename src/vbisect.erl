@@ -175,7 +175,7 @@ dictionary_size_in_bytes(BinDict) ->
 %% They attempt to organize data in lines but leave caller to insert newlines.
 -spec log_summary(bindict()) -> iolist().
 -spec log_summary(bindict(), [key()]) -> iolist().
--spec log_full(bindict()) -> iolist().
+-spec log_full(bindict()) -> [binary() | {key(), value()}].
 
 %% Display the number of entries and size of the dictionary in bytes.
 log_summary(<< ?MATCH_VBISECT_DATA(Num_Entries, _Nodes) >> = BinDict) ->
