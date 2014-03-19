@@ -61,9 +61,9 @@ merge(Compare_Fn, Orddict1, Orddict2) -> Orddict3.
 To play around with the code after cloning from github:
 
 ```
-cd vbisect
-make
-erl
+$ cd vbisect
+$ make
+$ erl
 1> cd(ebin).
 
 2> vbisect:module_info().
@@ -83,6 +83,71 @@ erl
 <<118,98,105,115,0,0,0,3,0,4,110,97,109,101,0,0,0,15,0,3,
   97,103,101,0,0,0,0,0,0,...>>
 
+```
+
+### Testing
+
+To run tests, you need to install PropEr. You can clone it from
+https://github.com/manopapad/proper and then update the Makefile
+for vbisect with ERL_LIBS set to the full pathname to your PropEr
+installation. Once that is set up, do the following:
+
+```
+jay$ pwd
+/Users/jay/Git/vbisect
+
+jay$ make
+ APP    vbisect.app.src
+
+jay$ make clean
+ GEN    clean
+
+jay$ make
+ ERLC   vbisect.erl
+Old inliner: threshold=0 functions=[{skip_to_smaller_node,1},
+                                    {skip_to_bigger_node,3}]
+ APP    vbisect.app.src
+
+jay$ make dialyze
+  Checking whether the PLT /Users/jay/Git/vbisect/.vbisect.plt is up-to-date... yes
+  Proceeding with analysis... done in 0m0.79s
+done (passed successfully)
+
+jay$ make tests
+ GEN    clean
+ ERLC   vbisect.erl
+Old inliner: threshold=0 functions=[{skip_to_smaller_node,1},
+                                    {skip_to_bigger_node,3}]
+ APP    vbisect.app.src
+ GEN    build-tests
+
+
+Common Test v1.7.4 starting (cwd is /Users/jay/Git/vbisect)
+
+
+
+CWD set to: "/Users/jay/Git/vbisect/logs/ct_run.ct@yon.2014-03-19_11.43.51"
+
+TEST INFO: 1 test(s), 3 case(s) in 1 suite(s)
+
+Cover compiling 1 modules - this may take some time... done
+
+Testing Git.vbisect.vbisect_SUITE: Starting test, 3 test cases
+
+=INFO REPORT==== 19-Mar-2014::11:43:54 ===
+Average over 20 runs, 100000 keys in dict
+Average fetch 1000 keys: 38566.0 us, max: 45261 us
+Average fetch 1 key: 38.566 us
+Theoretical sequential RPS: 25929
+Testing Git.vbisect.vbisect_SUITE: TEST COMPLETE, 3 ok, 0 failed of 3 test cases
+
+Cover analysing...
+Updating /Users/jay/Git/vbisect/logs/index.html... done
+Updating /Users/jay/Git/vbisect/logs/all_runs.html... done
+
+ GEN    tests
+
+yon:vbisect jay$ 
 ```
 
 ### Building with your own application

@@ -22,6 +22,8 @@
 -author('Kresten Krab Thorup <krab@trifork.com>').
 
 -export([
+         is_vbisect/1, is_vbisect/2,
+         data_version/1,
          from_orddict/1, to_orddict/1,
          from_gb_tree/1, to_gb_tree/1,
          find/2, find_geq/2,
@@ -44,9 +46,6 @@
 -type bindict() :: binary().
 -export_type([key/0, value/0, bindict/0]).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
 
 %% Vbisect macros contain only the comma-delimited binary
 %% matching fields, so that in context the << ... >> are
@@ -112,10 +111,30 @@
 %% API functions
 %% ===================================================================
 
+-spec is_vbisect(any()) -> boolean().
+-spec is_vbisect(any(), pos_integer()) -> boolean().
+-spec data_version(any()) -> ?V1 | error.
+
+is_vbisect(BinDict) -> is_vbisect(BinDict, ?V1).
+    
+is_vbisect(<< ?MATCH_VBISECT_DATA(_, _) >>, ?V1) -> true;
+is_vbisect(                              _,   _) -> false.
+
+data_version(BinDict) ->
+    case is_vbisect(BinDict) of
+        false -> error;
+        true  -> ?V1
+    end.
+
+
 -spec from_orddict(orddict:orddict()) -> bindict().
 -spec to_orddict(bindict()) -> orddict:orddict().
 
-from_orddict(OrdDict) ->
+%% Validate at least the first element of the list is {Key, Value}.
+from_orddict([]) ->
+    from_gb_tree(gb_trees:from_orddict([]));
+from_orddict([{_Key, _Value} | _] = OrdDict)
+  when is_binary(_Key), is_binary(_Value) ->
     from_gb_tree(gb_trees:from_orddict(OrdDict)).
 
 to_orddict(BinDict) ->
@@ -168,7 +187,7 @@ merge(Fun, BinDict1, BinDict2) ->
 
 -spec dictionary_size_in_bytes(bindict()) -> pos_integer().
 
-dictionary_size_in_bytes(BinDict) ->
+dictionary_size_in_bytes(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
     byte_size(BinDict).
 
 %% Functions for logging information about vbisect instances.
@@ -315,61 +334,3 @@ foldr_node(Fun, Acc, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> ) ->
     Acc2 = Fun(Key, Value, Acc1),
     foldr_node(Fun, Acc2, Smaller);
 foldr_node(_Fun, Acc, <<>>) -> Acc.
-
-
-%% ===================================================================
-%% Test functions
-%% ===================================================================
-
--ifdef(TEST).
-
-speed_test_() ->
-    {timeout, 600,
-     fun() ->
-             Start = 100000000000000,
-             N = 100000,
-             Keys = lists:seq(Start, Start+N),
-             KeyValuePairs = lists:map(fun (I) -> {<<I:64/integer>>, <<255:8/integer>>} end,
-                                       Keys),
-
-             %% Will mostly be unique, if N is bigger than 10000
-             ReadKeys = [<<(lists:nth(random:uniform(N), Keys)):64/integer>> || _ <- lists:seq(1, 1000)],
-             B = from_orddict(KeyValuePairs),
-             erlang:garbage_collect(),
-             time_reads(B, N, ReadKeys)
-     end}.
-
-
-time_reads(B, Size, ReadKeys) ->
-    Parent = self(),
-    spawn(
-      fun() ->
-              Runs = 20,
-              Timings =
-                  lists:map(
-                    fun (_) ->
-                            StartTime = now(),
-                            _ = find_many(B, ReadKeys),
-                            timer:now_diff(now(), StartTime)
-                    end, lists:seq(1, Runs)),
-
-              Rps = 1000000 / ((lists:sum(Timings) / length(Timings)) / 1000),
-              error_logger:info_msg("Average over ~p runs, ~p keys in dict~n"
-                                    "Average fetch ~p keys: ~p us, max: ~p us~n"
-                                    "Average fetch 1 key: ~p us~n"
-                                    "Theoretical sequential RPS: ~w~n",
-                                    [Runs, Size, length(ReadKeys),
-                                     lists:sum(Timings) / length(Timings),
-                                     lists:max(Timings),
-                                     (lists:sum(Timings) / length(Timings)) / length(ReadKeys),
-                                     trunc(Rps)]),
-
-              Parent ! done
-      end),
-    receive done -> ok after 1000 -> ok end.
-
--spec find_many(bindict(), [key()]) -> [value() | not_found].
-find_many(B, Keys) ->
-    lists:map(fun (K) -> find(K, B) end, Keys).
-
--endif.
