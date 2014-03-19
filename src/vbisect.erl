@@ -27,7 +27,7 @@
          find/2, find_geq/2,
          foldl/3, foldr/3, merge/3,
          dictionary_size_in_bytes/1,
-         log_summary/1, log_detail/1, log_full/1
+         log_summary/1, log_summary/2, log_full/1
         ]).
 
 -compile({inline, [skip_to_smaller_node/1, skip_to_bigger_node/3]}).
@@ -174,8 +174,8 @@ dictionary_size_in_bytes(BinDict) ->
 %% Functions for logging information about vbisect instances.
 %% They attempt to organize data in lines but leave caller to insert newlines.
 -spec log_summary(bindict()) -> iolist().
--spec log_detail (bindict()) -> iolist().
--spec log_full   (bindict()) -> iolist().
+-spec log_summary(bindict(), [key()]) -> iolist().
+-spec log_full(bindict()) -> iolist().
 
 %% Display the number of entries and size of the dictionary in bytes.
 log_summary(<< ?MATCH_VBISECT_DATA(Num_Entries, _Nodes) >> = BinDict) ->
@@ -185,16 +185,16 @@ log_summary(<< ?MATCH_VBISECT_DATA(Num_Entries, _Nodes) >> = BinDict) ->
      end
         ++ [<<" (">>, integer_to_binary(dictionary_size_in_bytes(BinDict)), <<" bytes)">>].
 
-%% Display summary plus the midpoint key / value node.
-log_detail(<< ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = Bin_Dict) ->
-    Summary  = iolist_to_binary(log_summary(Bin_Dict)),
-    Midpoint = iolist_to_binary(
-                 case Nodes of
-                     <<>> -> "";
-                     << ?MATCH_VBISECT_NODE(Key, Value, _Smaller, _Bigger) >> ->
-                         [<<"Midpoint: ">>, <<"{">>, Key, <<", ">>, Value, <<"}">>]
-                 end),
-    [Summary, Midpoint].
+%% Display summary plus the key properties requested.
+log_summary(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = Bin_Dict, Important_Keys) ->
+    Summary      = log_summary(Bin_Dict),
+    Unique_Props = case Important_Keys of
+                       [] -> <<>>;
+                       [First | Rest] ->
+                           [[First, <<": ">>, find(First, Bin_Dict)]
+                               | [[<<", ">>, K, <<": ">>, find(K, Bin_Dict)] || K <- Rest]]
+                   end,
+    [Summary, <<" [ ">>, Unique_Props, <<" ]">>].
 
 %% Display summary plus the full dictionary of keys and values in sorted order.
 log_full(Bin_Dict) ->
