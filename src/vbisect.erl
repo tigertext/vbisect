@@ -26,9 +26,11 @@
          data_version/1,
          from_orddict/1, to_orddict/1,
          from_gb_tree/1, to_gb_tree/1,
+         fetch_keys/1, is_key/2, values/1,
          find/2, find_geq/2,
          foldl/3, foldr/3, merge/3,
-         dictionary_size_in_bytes/1,
+         filter/2, map/2,
+         size/1, dictionary_size_in_bytes/1,
          log_summary/1, log_summary/2, log_full/1
         ]).
 
@@ -153,6 +155,20 @@ to_gb_tree(<< ?MATCH_VBISECT_DATA(Num_Entries, Nodes) >> = _BinDict) ->
     {Num_Entries, to_gb_node(Nodes)}.
 
 
+-spec fetch_keys(bindict()) -> [key()].
+-spec is_key(key(), bindict()) -> boolean().
+-spec values(bindict()) -> [value()].
+
+fetch_keys(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
+    foldr(fun(Key, _Value, Acc) -> [Key | Acc] end, [], BinDict).
+
+is_key(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
+    find(Key, BinDict) =/=  error.
+
+values(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
+    foldr(fun(_Key, Value, Acc) -> [Value | Acc] end, [], BinDict).
+                  
+
 -spec find    (key(), bindict()) -> {ok, value()}                    | error.
 -spec find_geq(key(), bindict()) -> {ok, Key::key(), Value::value()} | none.
 
@@ -165,12 +181,16 @@ find_geq(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     find_geq_node(Key, none, Nodes).
 
 
--type dict_fold_fn()  :: fun((Key::key(), Value::value(),     Acc::term()) -> term()).
--type dict_merge_fn() :: fun((Key::key(), Value1::value(), Value2::term()) -> term()).
+-type dict_fold_fn()   :: fun((Key::key(), Value::value(),     Acc::term()) -> term()).
+-type dict_merge_fn()  :: fun((Key::key(), Value1::value(), Value2::term()) -> term()).
+-type dict_filter_fn() :: fun((Key::key(), Value::value()) -> boolean()).
+-type dict_map_fn()    :: fun((Key::key(), Value::value()) -> binary()).
 
 -spec foldl(dict_fold_fn(),  term(),    bindict()) -> term().
 -spec foldr(dict_fold_fn(),  term(),    bindict()) -> term().
 -spec merge(dict_merge_fn(), bindict(), bindict()) -> bindict().
+-spec filter(dict_filter_fn(), bindict()) -> bindict().
+-spec map(dict_filter_fn(), bindict()) -> bindict().
 
 foldl(Fun, Acc, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     foldl_node(Fun, Acc, Nodes).
@@ -184,8 +204,21 @@ merge(Fun, BinDict1, BinDict2) ->
     OD3 = orddict:merge(Fun, OD1, OD2),
     from_orddict(OD3).
 
+filter(Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
+    MatchingNodes = filter_nodes(Fun, [], Nodes),
+    from_orddict(orddict:from_list(MatchingNodes)).
 
+map(Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
+    MappedNodes = map_nodes(Fun, [], Nodes),
+    from_orddict(orddict:from_list(MappedNodes)).
+
+
+-spec size(bindict()) -> pos_integer().
 -spec dictionary_size_in_bytes(bindict()) -> pos_integer().
+
+%% Number of entries in the dictionary.
+size(<< ?MATCH_VBISECT_DATA(Num_Entries, _Nodes) >> = _BinDict) ->
+    Num_Entries.
 
 dictionary_size_in_bytes(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
     byte_size(BinDict).
@@ -334,3 +367,20 @@ foldr_node(Fun, Acc, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> ) ->
     Acc2 = Fun(Key, Value, Acc1),
     foldr_node(Fun, Acc2, Smaller);
 foldr_node(_Fun, Acc, <<>>) -> Acc.
+
+%% Walk all the nodes applying filter to keep all that pass.
+filter_nodes(Fun, Matches, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> = _Node) ->
+    Matches0 = case Fun(Key, Value) of
+                   true  -> [{Key, Value} | Matches];
+                   false -> Matches
+               end,
+    Matches1 = filter_nodes(Fun, Matches0, Smaller),
+    filter_nodes(Fun, Matches1, Bigger);
+filter_nodes(_Fun, Matches, <<>>) -> Matches.
+
+%% Walk all the nodes mapping them to new values.
+map_nodes(Fun, MappedNodes, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> = _Node) ->
+    MappedNodes0 = [{Key, Fun(Key, Value)} | MappedNodes],
+    MappedNodes1 = map_nodes(Fun, MappedNodes0, Smaller),
+    map_nodes(Fun, MappedNodes1, Bigger);
+map_nodes(_Fun, MappedNodes, <<>>) -> MappedNodes.
