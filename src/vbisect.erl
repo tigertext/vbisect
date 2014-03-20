@@ -189,8 +189,8 @@ find_geq(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
 -spec foldl(dict_fold_fn(),  term(),    bindict()) -> term().
 -spec foldr(dict_fold_fn(),  term(),    bindict()) -> term().
 -spec merge(dict_merge_fn(), bindict(), bindict()) -> bindict().
--spec filter(dict_filter_fn(), bindict()) -> bindict().
--spec map(dict_filter_fn(), bindict()) -> bindict().
+-spec filter (dict_filter_fn(), bindict()) -> bindict().
+-spec map    (dict_map_fn(),    bindict()) -> bindict().
 
 foldl(Fun, Acc, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     foldl_node(Fun, Acc, Nodes).
@@ -204,12 +204,12 @@ merge(Fun, BinDict1, BinDict2) ->
     OD3 = orddict:merge(Fun, OD1, OD2),
     from_orddict(OD3).
 
-filter(Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
-    MatchingNodes = filter_nodes(Fun, [], Nodes),
+filter(Filter_Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
+    MatchingNodes = filter_nodes(Filter_Fun, [], Nodes),
     from_orddict(orddict:from_list(MatchingNodes)).
 
-map(Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
-    MappedNodes = map_nodes(Fun, [], Nodes),
+map(Map_Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
+    MappedNodes = map_nodes(Map_Fun, [], Nodes),
     from_orddict(orddict:from_list(MappedNodes)).
 
 
@@ -354,33 +354,41 @@ find_geq_node_bigger(Key, Else, Node, KeySize, ValueSize, SmallerSize) ->
     << _:Skip_Size/binary, ?BIGGER_ENTRY(Bigger) >> = Node,
     find_geq_node(Key, Else, Bigger).
 
-
-foldl_node(Fun, Acc, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> ) ->
+%% Walk the left (smaller) branch depth-first, being lazy constructing right branch sub-binaries.
+foldl_node(Fun, Acc, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, _) >> = Node) ->
     Acc1 = foldl_node(Fun, Acc, Smaller),
     Acc2 = Fun(Key, Value, Acc1),
+    Skip_Size = skip_to_bigger_node(__KeySize, __ValueSize, __SmallerSize),
+    << _:Skip_Size/binary, ?BIGGER_ENTRY(Bigger) >> = Node,
     foldl_node(Fun, Acc2, Bigger);
 foldl_node(_Fun, Acc, <<>>) -> Acc.
 
-
-foldr_node(Fun, Acc, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> ) ->
+%% Walk the right (larger) branch depth-first, being lazy constructing left branch sub-binaries.
+foldr_node(Fun, Acc, << ?MATCH_VBISECT_NODE(Key, Value, _, Bigger) >> = Node) ->
     Acc1 = foldr_node(Fun, Acc, Bigger),
     Acc2 = Fun(Key, Value, Acc1),
+    Skip_Size = skip_to_smaller_node(__KeySize),
+    << _:Skip_Size/binary, ?SMALLER_ENTRY(Smaller), _/binary >> = Node,
     foldr_node(Fun, Acc2, Smaller);
 foldr_node(_Fun, Acc, <<>>) -> Acc.
 
-%% Walk all the nodes applying filter to keep all that pass.
-filter_nodes(Fun, Matches, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> = _Node) ->
-    Matches0 = case Fun(Key, Value) of
+%% Walk the left (smaller) branch depth-first, being lazy constructing right branch sub-binaries.
+filter_nodes(Filter_Fun, Matches, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, _) >> = Node) ->
+    Matches0 = case Filter_Fun(Key, Value) of
                    true  -> [{Key, Value} | Matches];
                    false -> Matches
                end,
-    Matches1 = filter_nodes(Fun, Matches0, Smaller),
-    filter_nodes(Fun, Matches1, Bigger);
-filter_nodes(_Fun, Matches, <<>>) -> Matches.
+    Matches1 = filter_nodes(Filter_Fun, Matches0, Smaller),
+    Skip_Size = skip_to_bigger_node(__KeySize, __ValueSize, __SmallerSize),
+    << _:Skip_Size/binary, ?BIGGER_ENTRY(Bigger) >> = Node,
+    filter_nodes(Filter_Fun, Matches1, Bigger);
+filter_nodes(_Filter_Fun, Matches, <<>>) -> Matches.
 
-%% Walk all the nodes mapping them to new values.
-map_nodes(Fun, MappedNodes, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, Bigger) >> = _Node) ->
-    MappedNodes0 = [{Key, Fun(Key, Value)} | MappedNodes],
-    MappedNodes1 = map_nodes(Fun, MappedNodes0, Smaller),
-    map_nodes(Fun, MappedNodes1, Bigger);
-map_nodes(_Fun, MappedNodes, <<>>) -> MappedNodes.
+%% Walk the left (smaller) branch depth-first, being lazy constructing right branch sub-binaries.
+map_nodes(Map_Fun, MappedNodes, << ?MATCH_VBISECT_NODE(Key, Value, Smaller, _) >> = Node) ->
+    MappedNodes0 = [{Key, Map_Fun(Key, Value)} | MappedNodes],
+    MappedNodes1 = map_nodes(Map_Fun, MappedNodes0, Smaller),
+    Skip_Size = skip_to_bigger_node(__KeySize, __ValueSize, __SmallerSize),
+    << _:Skip_Size/binary, ?BIGGER_ENTRY(Bigger) >> = Node,
+    map_nodes(Map_Fun, MappedNodes1, Bigger);
+map_nodes(_Map_Fun, MappedNodes, <<>>) -> MappedNodes.
