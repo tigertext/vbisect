@@ -7,4 +7,6 @@
 -type config() :: proplists:proplist().
 -spec init_per_suite(config()) -> config().
 -spec end_per_suite(config()) -> config().
--spec all() -> [atom()].
+-spec all() -> proplists:proplist().
+-spec groups() -> list().
+

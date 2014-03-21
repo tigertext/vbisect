@@ -1,4 +1,3 @@
 {alias, vbisect, "./vbisect/"}.
 {include, ["../include"]}.
-{cover, "./vbisect.coverspec"}.
-{suites, vbisect, [vbisect_SUITE]}.
+{specs, separate, ["vbisect_func.spec", "vbisect_perf.spec"]}.

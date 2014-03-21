@@ -184,7 +184,7 @@ find_geq(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
 -type dict_fold_fn()   :: fun((Key::key(), Value::value(),     Acc::term()) -> term()).
 -type dict_merge_fn()  :: fun((Key::key(), Value1::value(), Value2::term()) -> term()).
 -type dict_filter_fn() :: fun((Key::key(), Value::value()) -> boolean()).
--type dict_map_fn()    :: fun((Key::key(), Value::value()) -> binary()).
+-type dict_map_fn()    :: fun((Key::key(), Value1::value()) -> Value2::value()).
 
 -spec foldl(dict_fold_fn(),  term(),    bindict()) -> term().
 -spec foldr(dict_fold_fn(),  term(),    bindict()) -> term().
@@ -204,10 +204,14 @@ merge(Fun, BinDict1, BinDict2) ->
     OD3 = orddict:merge(Fun, OD1, OD2),
     from_orddict(OD3).
 
+%% Generate a new dictionary containing the elements that return true from the filter function.
+%% Directly reimplenting the fold removes 1 function call per node element.
 filter(Filter_Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     MatchingNodes = filter_nodes(Filter_Fun, [], Nodes),
     from_orddict(orddict:from_list(MatchingNodes)).
 
+%% Tranform every value to a possibly new value, returning a new dictionary.
+%% Directly reimplenting the fold removes 1 function call per node element.
 map(Map_Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     MappedNodes = map_nodes(Map_Fun, [], Nodes),
     from_orddict(orddict:from_list(MappedNodes)).

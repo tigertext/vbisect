@@ -18,23 +18,36 @@
 -module(vbisect_SUITE).
 -author('jay@duomark.com').
 
--export([all/0, init_per_suite/1, end_per_suite/1]).
+-export([
+         all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/1, end_per_group/1
+        ]).
+
+%% Actual tests
 -export([
          check_make_vbisect/1,
          check_use_vbisect/1,
-         check_performance/1
+         check_lookup_speed/1
         ]).
 
 -include("vbisect_common_test.hrl").
 
-all() -> [
-          check_make_vbisect,
-          check_use_vbisect,
-          check_performance
-         ].
+all() -> [{group, functionality}, {group, performance}].
+
+groups() -> [
+             {functionality, [sequence], [{vbisect, [sequence],
+                                           [check_make_vbisect, check_use_vbisect]}]},
+             {performance,   [sequence], [{vbisect, [sequence],
+                                           [check_lookup_speed]}]}
+            ].
 
 init_per_suite(Config) -> Config.
-end_per_suite(Config)  -> Config.
+end_per_suite(_Config) -> ok.
+
+init_per_group(Config) -> Config.
+end_per_group(_Config) -> ok.
+     
 
 %% Test Module is ?TM
 -define(TM, vbisect).
@@ -49,6 +62,8 @@ check_make_vbisect(_Config) ->
                            begin
                                false = ?TM:is_vbisect(Key),
                                false = ?TM:is_vbisect(Value),
+                               error = ?TM:data_version(Key),
+                               error = ?TM:data_version(Value),
                                true = try ?TM:from_orddict([{Key, Value}])
                                       catch error:function_clause -> true
                                       end
@@ -61,7 +76,11 @@ check_make_vbisect(_Config) ->
         = ?FORALL({Key, Value}, {?TM:key(), ?TM:value()},
                   begin
                       Bin_Dict = vbisect:from_orddict([{Key, Value}]),
-                      ?TM:is_vbisect(Bin_Dict)
+                      true  = ?TM:is_vbisect(Bin_Dict),
+                      true  = ?TM:is_vbisect(Bin_Dict, 1),
+                      false = ?TM:is_vbisect(Bin_Dict, 2),
+                      1 = ?TM:data_version(Bin_Dict),
+                      1 =:= ?TM:size(Bin_Dict)
                   end),
     true = proper:quickcheck(Test_Make, ?PQ_NUM(10)).
     
@@ -88,8 +107,8 @@ check_use_vbisect(_Config) ->
     true = proper:quickcheck(Test_Make, ?PQ_NUM(10)).
 
 
--spec check_performance(config()) -> ok.
-check_performance(_Config) ->
+-spec check_lookup_speed(config()) -> ok.
+check_lookup_speed(_Config) ->
     Start = 100000000000000,
     N = 100000,
     Keys = lists:seq(Start, Start+N),
