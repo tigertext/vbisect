@@ -31,7 +31,7 @@
          foldl/3, foldr/3, merge/3,
          filter/2, map/2,
          size/1, dictionary_size_in_bytes/1,
-         log_summary/1, log_summary/2, log_full/1
+         log_summary/1, log_summary/2, log_custom/2, log_full/1
         ]).
 
 -compile({inline, [skip_to_smaller_node/1, skip_to_bigger_node/3]}).
@@ -231,7 +231,8 @@ dictionary_size_in_bytes(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDi
 %% They attempt to organize data in lines but leave caller to insert newlines.
 -spec log_summary(bindict()) -> iolist().
 -spec log_summary(bindict(), [key()]) -> iolist().
--spec log_full(bindict()) -> [binary() | {key(), value()}].
+-spec log_custom (bindict(), [key()]) -> {binary(), [{key(), value()}]}.
+-spec log_full(bindict()) -> {binary(), [{key(), value()}]}.
 
 %% Display the number of entries and size of the dictionary in bytes.
 log_summary(<< ?MATCH_VBISECT_DATA(Num_Entries, _Nodes) >> = BinDict) ->
@@ -242,21 +243,36 @@ log_summary(<< ?MATCH_VBISECT_DATA(Num_Entries, _Nodes) >> = BinDict) ->
         ++ [<<" (">>, integer_to_binary(dictionary_size_in_bytes(BinDict)), <<" bytes)">>].
 
 %% Display summary plus the key properties requested.
-log_summary(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = Bin_Dict, Important_Keys) ->
-    Summary      = log_summary(Bin_Dict),
+log_summary(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict, Important_Keys) ->
+    Summary      = log_summary(BinDict),
     Unique_Props = case Important_Keys of
                        [] -> <<>>;
                        [First | Rest] ->
-                           [[First, <<": ">>, find(First, Bin_Dict)]
-                               | [[<<", ">>, K, <<": ">>, find(K, Bin_Dict)] || K <- Rest]]
+                           [[First, <<": ">>, fetch_value(First, BinDict)
+                               | [[<<", ">>, K, <<": ">>, fetch_value(K, BinDict)] || K <- Rest]]]
                    end,
     [Summary, <<" [ ">>, Unique_Props, <<" ]">>].
 
+fetch_value(Key, BinDict) ->
+    case find(Key, BinDict) of
+        error -> <<>>;
+        {ok, Value} -> Value
+    end.
+    
+%% Log summary plus select keys and values from the dictionary
+log_custom(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict, Important_Keys) ->
+    Summary  = log_summary(BinDict),
+    KV_Pairs = case Important_Keys of
+                   [] -> [];
+                   _  -> [{Key, fetch_value(Key, BinDict)} || Key <- Important_Keys]
+               end,
+    {Summary, KV_Pairs}.
+
 %% Display summary plus the full dictionary of keys and values in sorted order.
 log_full(Bin_Dict) ->
-    Summary = iolist_to_binary(log_summary(Bin_Dict)),
-    Values  = orddict:to_list(to_orddict(Bin_Dict)),
-    [Summary | Values].
+    Summary   = iolist_to_binary(log_summary(Bin_Dict)),
+    KV_Pairs  = orddict:to_list(to_orddict(Bin_Dict)),
+    {Summary, KV_Pairs}.
 
 
 %% ===================================================================
