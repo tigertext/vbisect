@@ -316,7 +316,7 @@ find_node(_, <<>>) -> error.
 find_value(Node, KeySize, SmallerSize) ->
     Skip_Size = skip_to_value(KeySize, SmallerSize),
     << _:Skip_Size/binary, ?VALUE_ENTRY(Value), _/binary >> = Node,
-    Value.
+    {ok, Value}.
 
 %% Keep the same arg order as find_node to avoid overhead.
 find_node_smaller(Key, Node, KeySize) ->
