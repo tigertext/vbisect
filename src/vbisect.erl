@@ -20,8 +20,10 @@
 %% ----------------------------------------------------------------------------
 -module(vbisect).
 -author('Kresten Krab Thorup <krab@trifork.com>').
+-author('Jay Nelson <jay@duomark.com>').
 
 -export([
+         new/0,
          is_vbisect/1, is_vbisect/2,
          data_version/1,
          from_orddict/1, to_orddict/1,
@@ -113,6 +115,11 @@
 %% API functions
 %% ===================================================================
 
+-spec new() -> bindict().
+
+new() -> from_orddict([]).
+
+    
 -spec is_vbisect(any()) -> boolean().
 -spec is_vbisect(any(), pos_integer()) -> boolean().
 -spec data_version(any()) -> ?V1 | error.
