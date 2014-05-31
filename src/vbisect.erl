@@ -224,7 +224,7 @@ map(Map_Fun, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     from_orddict(orddict:from_list(MappedNodes)).
 
 
--spec size(bindict()) -> pos_integer().
+-spec size(bindict()) -> non_neg_integer().
 -spec dictionary_size_in_bytes(bindict()) -> pos_integer().
 
 %% Number of entries in the dictionary.
@@ -238,7 +238,7 @@ dictionary_size_in_bytes(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDi
 %% They attempt to organize data in lines but leave caller to insert newlines.
 -spec log_summary(bindict()) -> iolist().
 -spec log_summary(bindict(), [key()]) -> iolist().
--spec log_custom (bindict(), [key()]) -> {binary(), [{key(), value()}]}.
+-spec log_custom (bindict(), [key()]) -> {iolist(), [{key(), value()}]}.
 -spec log_full(bindict()) -> {binary(), [{key(), value()}]}.
 
 %% Display the number of entries and size of the dictionary in bytes.
