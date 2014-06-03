@@ -26,6 +26,7 @@
          new/0,
          is_vbisect/1, is_vbisect/2,
          data_version/1,
+         from_list/1,    to_list/1,
          from_orddict/1, to_orddict/1,
          from_gb_tree/1, to_gb_tree/1,
          fetch_keys/1, is_key/2, values/1,
@@ -136,9 +137,15 @@ data_version(BinDict) ->
     end.
 
 
+-spec from_list(list())  -> bindict().
+-spec to_list(bindict()) -> list().
 -spec from_orddict(orddict:orddict()) -> bindict().
 -spec to_orddict(bindict()) -> orddict:orddict().
 
+%% Just pass off to orddict for the real work.
+from_list(List)  -> from_orddict(List).
+to_list(BinDict) -> orddict:to_list(to_orddict(BinDict)).
+    
 %% Validate at least the first element of the list is {Key, Value}.
 from_orddict([]) ->
     from_gb_tree(gb_trees:from_orddict([]));
