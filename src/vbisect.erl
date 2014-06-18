@@ -143,15 +143,15 @@ data_version(BinDict) ->
 -spec to_orddict(bindict()) -> orddict:orddict().
 
 %% Just pass off to orddict for the real work.
-from_list(List)  -> from_orddict(List).
+from_list(List)  -> from_orddict(orddict:from_list(List)).
 to_list(BinDict) -> orddict:to_list(to_orddict(BinDict)).
     
-%% Validate at least the first element of the list is {Key, Value}.
 from_orddict([]) ->
     from_gb_tree(gb_trees:from_orddict([]));
 from_orddict([{_Key, _Value} | _] = OrdDict)
   when is_binary(_Key), is_binary(_Value) ->
     from_gb_tree(gb_trees:from_orddict(OrdDict)).
+      
 
 to_orddict(BinDict) ->
     Fold_Fn = fun(Key, Value, Acc) -> [{Key, Value} | Acc] end,
