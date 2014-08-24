@@ -30,7 +30,7 @@
          from_orddict/1, to_orddict/1,
          from_gb_tree/1, to_gb_tree/1,
          fetch_keys/1, is_key/2, values/1,
-         find/2, find_geq/2,
+         find/2, find_geq/2, fetch/2,
          foldl/3, foldr/3, merge/3,
          filter/2, map/2,
          size/1, dictionary_size_in_bytes/1,
@@ -185,6 +185,7 @@ values(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
 
 -spec find    (key(), bindict()) -> {ok, value()}                    | error.
 -spec find_geq(key(), bindict()) -> {ok, Key::key(), Value::value()} | none.
+-spec fetch   (key(), bindict()) -> {ok, value()}                    | no_return.
 
 find(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     find_node(Key, Nodes).
@@ -193,6 +194,12 @@ find(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
 %% This is good for an inner node where key is the smallest key in the child node.
 find_geq(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     find_geq_node(Key, none, Nodes).
+
+fetch(Key, BinDict) ->
+    case find(Key, BinDict) of
+        error -> erlang:error(badarg, [Key, BinDict]);
+        Value -> Value
+    end.
 
 
 -type dict_fold_fn()   :: fun((Key::key(), Value::value(),     Acc::term()) -> term()).
