@@ -180,7 +180,7 @@ check_fetch_1_vbisect(_Config) ->
                       true  = ?TM:is_vbisect(Bin_Dict),
                       false = ?TM:is_key(list_to_binary([Key, <<"-A">>]), Bin_Dict),
                       true  = ?TM:is_key(Key, Bin_Dict),
-                      ?TM:fetch(Key, Bin_Dict) =:= {ok, Value}
+                      ?TM:fetch(Key, Bin_Dict) =:= Value
                   end),
     true = proper:quickcheck(Test_Make, ?PQ_NUM(10)),
     ok.

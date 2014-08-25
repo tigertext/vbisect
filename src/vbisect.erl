@@ -185,7 +185,7 @@ values(<< ?MATCH_VBISECT_DATA(_Num_Entries, _Nodes) >> = BinDict) ->
 
 -spec find    (key(), bindict()) -> {ok, value()}                    | error.
 -spec find_geq(key(), bindict()) -> {ok, Key::key(), Value::value()} | none.
--spec fetch   (key(), bindict()) -> {ok, value()}                    | no_return.
+-spec fetch   (key(), bindict()) -> value()                          | no_return.
 
 find(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
     find_node(Key, Nodes).
@@ -197,8 +197,8 @@ find_geq(Key, << ?MATCH_VBISECT_DATA(_Num_Entries, Nodes) >> = _BinDict) ->
 
 fetch(Key, BinDict) ->
     case find(Key, BinDict) of
-        error -> erlang:error(badarg, [Key, BinDict]);
-        Value -> Value
+        error       -> erlang:error(badarg, [Key, BinDict]);
+        {ok, Value} -> Value
     end.
 
 
