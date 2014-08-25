@@ -29,6 +29,7 @@
          check_make_vbisect/1,
          check_find_1_vbisect/1,
          check_find_n_vbisect/1,
+         check_fetch_1_vbisect/1,
          check_fold_vbisect/1,
          check_filter_vbisect/1,
          check_map_vbisect/1,
@@ -46,6 +47,7 @@ groups() -> [
                  check_make_vbisect,
                  check_find_1_vbisect,
                  check_find_n_vbisect,
+                 check_fetch_1_vbisect,
                  check_fold_vbisect,
                  check_filter_vbisect,
                  check_map_vbisect
@@ -104,7 +106,7 @@ check_make_vbisect(_Config) ->
 -spec check_find_1_vbisect(config()) -> ok.
 check_find_1_vbisect(_Config) ->
 
-    ct:log("Get from an empty vbisect should always fail"),
+    ct:log("Find from an empty vbisect should always fail"),
     VB_Empty = ?TM:from_orddict([]),
     0  = ?TM:size(VB_Empty),
     8  = ?TM:dictionary_size_in_bytes(VB_Empty),
@@ -124,9 +126,9 @@ check_find_1_vbisect(_Config) ->
         = ?FORALL({Key, Value}, {?TM:key(), ?TM:value()},
                   begin
                       Bin_Dict = vbisect:from_orddict([{Key, Value}]),
-                      true = ?TM:is_vbisect(Bin_Dict),
+                      true  = ?TM:is_vbisect(Bin_Dict),
                       false = ?TM:is_key(list_to_binary([Key, <<"-A">>]), Bin_Dict),
-                      true = ?TM:is_key(Key, Bin_Dict),
+                      true  = ?TM:is_key(Key, Bin_Dict),
                       ?TM:find(Key, Bin_Dict) =:= {ok, Value}
                   end),
     true = proper:quickcheck(Test_Make, ?PQ_NUM(10)),
@@ -154,6 +156,33 @@ check_find_n_vbisect(_Config) ->
                                    andalso Len =:= length(Fetched_Values)
                            end)),
     true = proper:quickcheck(Test_Random),
+    ok.
+
+-spec check_fetch_1_vbisect(config()) -> ok.
+check_fetch_1_vbisect(_Config) ->
+
+    ct:log("Fetch from an empty vbisect should always crash"),
+    VB_Empty = ?TM:from_orddict([]),
+    0  = ?TM:size(VB_Empty),
+    
+    Test_Empty
+        = ?FORALL(Key, ?TM:key(),
+                  (error =:= try ?TM:fetch(Key, VB_Empty)
+                             catch error:badarg -> error
+                             end)),
+    true = proper:quickcheck(Test_Empty, ?PQ_NUM(10)),
+    
+    ct:log("Fetch should return any field that is stored in a vbisect"),
+    Test_Make
+        = ?FORALL({Key, Value}, {?TM:key(), ?TM:value()},
+                  begin
+                      Bin_Dict = vbisect:from_orddict([{Key, Value}]),
+                      true  = ?TM:is_vbisect(Bin_Dict),
+                      false = ?TM:is_key(list_to_binary([Key, <<"-A">>]), Bin_Dict),
+                      true  = ?TM:is_key(Key, Bin_Dict),
+                      ?TM:fetch(Key, Bin_Dict) =:= {ok, Value}
+                  end),
+    true = proper:quickcheck(Test_Make, ?PQ_NUM(10)),
     ok.
 
 -spec check_fold_vbisect(config()) -> ok.
