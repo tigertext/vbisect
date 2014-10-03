@@ -100,7 +100,8 @@ check_make_vbisect(_Config) ->
                       1 = ?TM:data_version(Bin_Dict),
                       1 =:= ?TM:size(Bin_Dict)
                   end),
-    true = proper:quickcheck(Test_Make, ?PQ_NUM(10)).
+    true = proper:quickcheck(Test_Make, ?PQ_NUM(10)),
+    ok.
     
 
 -spec check_find_1_vbisect(config()) -> ok.
@@ -294,7 +295,7 @@ time_reads(B, Size, ReadKeys) ->
       end),
     receive done -> ok after 1000 -> ok end.
 
--spec find_many(?TM:bindict(), [?TM:key()]) -> [?TM:value() | not_found].
+-spec find_many(?TM:bindict(), [?TM:key()]) -> [{ok, ?TM:value()} | not_found].
 find_many(B, Keys) ->
     lists:map(fun (K) -> ?TM:find(K, B) end, Keys).
 
